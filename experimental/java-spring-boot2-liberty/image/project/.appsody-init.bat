@@ -1,1 +1,0 @@
-mvnw install -Denforcer.skip=true
