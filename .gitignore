@@ -1,0 +1,14 @@
+/ci/assets
+/ci/package
+/ci/build
+/ci/release
+/ci/nginx/docker-compose.override.yml
+**/.DS_Store
+**/node_modules
+**/*.log
+**/target
+**/.settings
+**/.project
+.*.swp
+__pycache__/
+*.py[cod]
