@@ -1,5 +1,13 @@
 FROM registry.access.redhat.com/ubi8/ubi
 
+# passed in via package script
+ARG GIT_ORG_REPO=appsody/stacks
+ARG IMAGE_REGISTRY_ORG=appsody
+ARG STACK_ID=java-spring-boot2
+ARG MAJOR_VERSION=0
+ARG MINOR_VERSION=1
+ARG PATCH_VERSION=0
+
 LABEL vendor="Kabanero" \
     name="kabanero/java-spring-boot2" \
     version="0.2.10" \
@@ -24,26 +32,18 @@ RUN yum install --disableplugin=subscription-manager -y wget ca-certificates
 ENV JAVA_VERSION 1.8.0_sr5fp37
 
 RUN set -eux; \
-    ESUM='51f6600dcc51c238bd4fbed73521e225094d7afa9afa2c8fb35ea78519a71930'; \
-    YML_FILE='sdk/linux/x86_64/index.yml'; \
-    BASE_URL="https://public.dhe.ibm.com/ibmdl/export/pub/systems/cloud/runtimes/java/meta/"; \
-    wget -q -U UA_IBM_JAVA_Docker -O /tmp/index.yml ${BASE_URL}/${YML_FILE}; \
-    JAVA_URL=$(sed -n '/^'${JAVA_VERSION}:'/{n;s/\s*uri:\s//p}'< /tmp/index.yml); \
-    wget -q -U UA_IBM_JAVA_Docker -O /tmp/ibm-java.bin ${JAVA_URL}; \
-    echo "${ESUM}  /tmp/ibm-java.bin" | sha256sum -c -; \
-    echo "INSTALLER_UI=silent" > /tmp/response.properties; \
-    echo "USER_INSTALL_DIR=/opt/ibm/java" >> /tmp/response.properties; \
-    echo "LICENSE_ACCEPTED=TRUE" >> /tmp/response.properties; \
-    mkdir -p /opt/ibm; \
-    chmod +x /tmp/ibm-java.bin; \
-    /tmp/ibm-java.bin -i silent -f /tmp/response.properties; \
-    rm -f /tmp/response.properties; \
-    rm -f /tmp/index.yml; \
-    rm -f /tmp/ibm-java.bin;
+   ESUM='20cff719c6de43f8bb58c7f59e251da7c1fa2207897c9a4768c8c669716dc819'; \
+   BINARY_URL='https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u222-b10_openj9-0.15.1/OpenJDK8U-jdk_x64_linux_openj9_8u222b10_openj9-0.15.1.tar.gz'; \
+   curl -LfsSo /tmp/openjdk.tar.gz ${BINARY_URL}; \
+   echo "${ESUM} */tmp/openjdk.tar.gz" | sha256sum -c -; \
+   mkdir -p /opt/java/openjdk; \
+   cd /opt/java/openjdk; \
+   tar -xf /tmp/openjdk.tar.gz --strip-components=1; \
+   rm -rf /tmp/openjdk.tar.gz;
 
-ENV JAVA_HOME=/opt/ibm/java/jre \
-    PATH=/opt/ibm/java/bin:$PATH \
-IBM_JAVA_OPTIONS="-XX:+UseContainerSupport"
+   ENV JAVA_HOME=/opt/java/openjdk \
+   PATH="/opt/java/openjdk/bin:$PATH"
+   ENV JAVA_TOOL_OPTIONS="-XX:+IgnoreUnrecognizedVMOptions -XX:+UseContainerSupport -XX:+IdleTuningCompactOnIdle -XX:+IdleTuningGcOnIdle"
 
 # Maven install
    ARG MAVEN_VERSION=3.6.2
@@ -58,8 +58,9 @@ IBM_JAVA_OPTIONS="-XX:+UseContainerSupport"
    && rm -f /tmp/apache-maven.tar.gz \
    && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
 
- ENV MAVEN_HOME /usr/share/maven
- ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
+
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
 
 COPY ./LICENSE /licenses/
 
@@ -68,13 +69,27 @@ COPY ./config /config
 COPY ./mvn-stack-settings.xml /usr/share/maven/conf/settings.xml
 COPY ./mvn-stack-settings.xml /project/mvn-stack-settings.xml
 
-# OSGI core for version range processing
-RUN  /project/util/check_version build
+# Build utility for version range processing
+# Install maven wrapper in /project
+RUN mkdir -p /mvn/repository \
+ && /project/util/check_version build \
+ && cd /project \
+ && mvn --no-transfer-progress -B -N io.takari:maven:wrapper -Dmaven=$(mvn help:evaluate -Dexpression=maven.version -q -DforceStdout)
 
-WORKDIR /project
-RUN mvn -B -N io.takari:maven:wrapper -Dmaven=$(mvn help:evaluate -Dexpression=maven.version -q -DforceStdout)
+# Update maven artifacts to use stack version information
+# Update Dockerfile to build from this appsody stack image (by range)
+RUN if [ ${MAJOR_VERSION} -eq 0 ]; then \
+      export IMAGE_VERSION=${MAJOR_VERSION}.${MINOR_VERSION}; \
+    else \
+      export IMAGE_VERSION=${MAJOR_VERSION}; \
+    fi \
+ && export MAVEN_ARTIFACT_VERSION="${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}" \
+ && sed -i -e "s|{{APPSODY_STACK}}|${IMAGE_REGISTRY_ORG}/${STACK_ID}:${IMAGE_VERSION}|" \
+           -e "s|{{APPSODY_STACK_FULL}}|${IMAGE_REGISTRY_ORG}/${STACK_ID}:${MAVEN_ARTIFACT_VERSION}|" /project/Dockerfile \
+ && sed -i -e "s|{{MAVEN_ARTIFACT_VERSION}}|${MAVEN_ARTIFACT_VERSION}|" /project/appsody-boot2-pom.xml
 
 WORKDIR /project/user-app
+
 RUN mkdir -p /mvn/repository
 RUN chown -R java_user:java_group /project
 RUN chown -R java_user:java_group /config
@@ -91,7 +106,7 @@ ENV APPSODY_DEPS=
 
 ENV APPSODY_WATCH_DIR="/project/user-app/src"
 ENV APPSODY_WATCH_IGNORE_DIR=""
-ENV APPSODY_WATCH_REGEX=""
+ENV APPSODY_WATCH_REGEX="(^.*\.java$)|(^.*\.properties$)|(^.*\.yaml$)|(^.*\.html$)|(^.*\.sql$)|(^.*\.js$)|(^.*\.properties$)"
 
 ENV APPSODY_RUN="/project/java-spring-boot2-build.sh run"
 ENV APPSODY_RUN_ON_CHANGE="/project/java-spring-boot2-build.sh recompile"
@@ -108,6 +123,7 @@ ENV APPSODY_TEST_KILL=true
 ENV PORT=8080
 
 EXPOSE 8080
+EXPOSE 8443
 EXPOSE 5005
 EXPOSE 35729
 ENTRYPOINT ["/project/java-spring-boot2-build.sh", "run"]

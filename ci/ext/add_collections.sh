@@ -17,6 +17,13 @@ mkdir -p $assets_dir
 # url for downloading released assets
 release_url="https://github.com/$TRAVIS_REPO_SLUG/releases/download"
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    sha256cmd="shasum --algorithm 256"    # Mac OSX
+else
+    sha256cmd="sha256sum "  # other OSs
+fi
+
+
 build_asset_tar () {
     asset_build=$assets_dir/asset_temp
     mkdir -p $asset_build
@@ -94,17 +101,18 @@ do
         for stack in $repo_dir/*/stack.yaml
         do
             stack_dir=$(dirname $stack)
+            
             if [ -d $stack_dir ]
             then
                 stack_id=$(basename $stack_dir)
-
+                
                 # check if the stack needs to be built
-                build=false
-                for repo_stack in $STACKS_LIST
+                build=true
+                for excluded_stack in $EXCLUDED_STACKS
                 do
-                    if [ $repo_stack = $repo_name/$stack_id ]
+                    if [ $excluded_stack = $repo_name/$stack_id ]
                     then
-                        build=true
+                        build=false
                     fi
                 done
 

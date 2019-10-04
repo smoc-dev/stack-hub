@@ -92,12 +92,6 @@ process_assets () {
     fi
 }
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    sha256cmd="shasum --algorithm 256"    # Mac OSX
-else
-    sha256cmd="sha256sum "  # other OSs
-fi
-
 if [ -f $collection ]
 then
     # check to see if we have maintainers in the collection.yaml
@@ -110,7 +104,7 @@ then
     yq m -x -i $index_file $collection
 
     # find the name of the default image in the collection.yaml
-    default_imageId=$(yq r $index_file default-image) 
+    default_imageId=$(yq r $index_file default-image)
     imagesCount=$(yq r $index_file images | awk '$1 == "-" { count++ } END { print count }')
     count=0
     while [ $count -lt $imagesCount ]
@@ -119,6 +113,7 @@ then
         if [ $default_imageId == $imageId ]
         then
             default_image=$(yq r $index_file images.[$count].image)
+            default_image="${default_image/\$IMAGE_REGISTRY_ORG/${IMAGE_REGISTRY_ORG}}"
         fi
         count=$(( $count + 1 ))
     done
@@ -136,19 +131,16 @@ then
             
             mkdir -p $template_temp
 
-            if [ $build = true ]
-            then
-                # Update template archives
-                tar -xzf $assets_dir/$template_archive -C $template_temp
-                if [ -f $template_temp/.appsody-config.yaml ]
-                then 
-                    yq w -i $template_temp/.appsody-config.yaml stack $default_image 
-                else
-                    echo "stack: $default_image" > $template_temp/.appsody-config.yaml
-                fi
-                tar -czf $assets_dir/$template_archive -C $template_temp .
-                echo -e "--- Updated template archive: $template_archive"
+            # Update template archives
+            tar -xzf $assets_dir/$template_archive -C $template_temp
+            if [ -f $template_temp/.appsody-config.yaml ]
+            then 
+                yq w -i $template_temp/.appsody-config.yaml stack $default_image 
+            else
+                echo "stack: $default_image" > $template_temp/.appsody-config.yaml
             fi
+            tar -czf $assets_dir/$template_archive -C $template_temp .
+            echo -e "--- Updated template archive: $template_archive"
         
             rm -fr $template_temp
         fi
