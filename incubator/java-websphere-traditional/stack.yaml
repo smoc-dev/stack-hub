@@ -1,0 +1,10 @@
+name: IBM WebSphere Traditional®
+version: 0.1.0
+description: tWAS using Maven
+license: Apache-2.0
+language: java
+maintainers:
+ - name: Glenn Marcy
+   email: gmarcy@us.ibm.com
+   github-id: gmarcy
+default-template: default

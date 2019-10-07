@@ -1,0 +1,5 @@
+default-image: java-websphere-traditional
+default-pipeline: default
+images:
+- id: java-websphere-traditional
+  image: $IMAGE_REGISTRY_ORG/java-websphere-traditional:0.1

@@ -1,0 +1,106 @@
+FROM ibmcom/websphere-traditional:9.0.5.1-ubi
+
+LABEL vendor="Kabanero" \
+    name="kabanero/java-websphere-traditional" \
+    version="0.1.0" \
+    summary="Image for Kabanero java-websphere-traditional development" \
+    description="This image contains the Kabanero development stack for the java-websphere-traditional collection"
+
+USER root
+
+RUN useradd --uid 1000 --gid 0 --shell /bin/bash --create-home java_user
+
+RUN yum upgrade --disableplugin=subscription-manager -y \
+   && yum clean --disableplugin=subscription-manager packages \
+   && echo 'Finished installing dependencies'
+
+# Dependency install
+RUN yum install --disableplugin=subscription-manager -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+    && yum install --disableplugin=subscription-manager -y curl wget xmlstarlet
+
+#Install openjdk
+ENV JAVA_VERSION jdk8u222-b10_openj9-0.15.1
+
+RUN set -eux; \
+   ESUM='20cff719c6de43f8bb58c7f59e251da7c1fa2207897c9a4768c8c669716dc819'; \
+   BINARY_URL='https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u222-b10_openj9-0.15.1/OpenJDK8U-jdk_x64_linux_openj9_8u222b10_openj9-0.15.1.tar.gz'; \
+   curl -LfsSo /tmp/openjdk.tar.gz ${BINARY_URL}; \
+   echo "${ESUM} */tmp/openjdk.tar.gz" | sha256sum -c -; \
+   mkdir -p /opt/java/openjdk; \
+   cd /opt/java/openjdk; \
+   tar -xf /tmp/openjdk.tar.gz --strip-components=1; \
+   rm -rf /tmp/openjdk.tar.gz;
+
+   ENV JAVA_HOME=/opt/java/openjdk \
+   PATH="/opt/java/openjdk/bin:$PATH"
+   ENV JAVA_TOOL_OPTIONS="-XX:+IgnoreUnrecognizedVMOptions -XX:+UseContainerSupport -XX:+IdleTuningCompactOnIdle -XX:+IdleTuningGcOnIdle"
+
+# Maven install
+ARG MAVEN_VERSION=3.6.2
+ARG USER_HOME_DIR="/root"
+ARG SHA=d941423d115cd021514bfd06c453658b1b3e39e6240969caf4315ab7119a77299713f14b620fb2571a264f8dff2473d8af3cb47b05acf0036fc2553199a5c1ee
+ARG BASE_URL=https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/
+
+ RUN mkdir -p /usr/share/maven /usr/share/maven/ref \
+   && curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+   && echo "${SHA}  /tmp/apache-maven.tar.gz" | sha512sum -c - \
+   && tar -xzf /tmp/apache-maven.tar.gz -C /usr/share/maven --strip-components=1 \
+   && rm -f /tmp/apache-maven.tar.gz \
+   && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
+
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
+
+COPY ./LICENSE /licenses/
+
+COPY ./project /project
+COPY ./config /config
+COPY ./mvn-stack-settings.xml /usr/share/maven/conf/settings.xml
+COPY ./mvn-stack-settings.xml /project/mvn-stack-settings.xml
+
+# OSGI core for version range processing
+RUN  /project/util/check_version build
+
+WORKDIR /project
+RUN mvn -B -N io.takari:maven:wrapper -Dmaven=$(mvn help:evaluate -Dexpression=maven.version -q -DforceStdout)
+
+WORKDIR /project/user-app
+RUN mkdir -p /mvn/repository
+RUN chown -R java_user:0 /project
+RUN chown -R java_user:0 /config
+RUN chown -R java_user:0 /mvn
+
+USER java_user
+ENV MAVEN_CONFIG "~/.m2"
+
+COPY ./project/was-config.props /work/config/was-config.props
+COPY ./project/install_app.py /work/config/install_app.py
+
+ENV APPSODY_PROJECT_DIR /project
+
+ENV APPSODY_MOUNTS="~/.m2/repository:/mvn/repository;.:/project/user-app"
+ENV APPSODY_DEPS=
+
+ENV APPSODY_WATCH_DIR=/project/user-app
+# ENV APPSODY_WATCH_IGNORE_DIR=/project/user-app/target
+# ENV APPSODY_WATCH_REGEX="^.*(.xml|.java|.properties)$"
+
+ENV APPSODY_INSTALL="/project/java-twas-build.sh install"
+
+ENV APPSODY_RUN="/project/java-twas-build.sh run"
+ENV APPSODY_RUN_ON_CHANGE="/project/java-twas-build.sh recompile"
+ENV APPSODY_RUN_KILL=false
+
+# ENV APPSODY_DEBUG="/project/java-twas-build.sh debug"
+# ENV APPSODY_DEBUG_ON_CHANGE=""
+# ENV APPSODY_DEBUG_KILL=false
+
+# ENV APPSODY_TEST="/project/java-twas-build.sh test"
+# ENV APPSODY_TEST_ON_CHANGE=""
+# ENV APPSODY_TEST_KILL=false
+
+ENV PORT=9080
+
+EXPOSE 9080
+EXPOSE 9443
+EXPOSE 7777
