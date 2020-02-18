@@ -1,8 +1,0 @@
-#!/bin/bash
-
-if [ "$TRAVIS" == "true" ]
-then
-    echo "Increasing Travis timeout"
-
-    export CI_WAIT_FOR='travis_wait 20'
-fi
