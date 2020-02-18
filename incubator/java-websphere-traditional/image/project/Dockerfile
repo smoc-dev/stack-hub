@@ -14,7 +14,7 @@ WORKDIR /project/user-app
 RUN /project/java-twas-build.sh package
 
 ####
-FROM ibmcom/websphere-traditional:9.0.5.1-ubi
+FROM ibmcom/websphere-traditional:9.0.5.2-ubi
 
 WORKDIR /
 

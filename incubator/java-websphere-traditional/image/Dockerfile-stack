@@ -1,4 +1,4 @@
-FROM ibmcom/websphere-traditional:9.0.5.1-ubi
+FROM ibmcom/websphere-traditional:9.0.5.2-ubi
 
 LABEL vendor="Kabanero" \
     name="kabanero/java-websphere-traditional" \
