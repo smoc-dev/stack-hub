@@ -1,5 +1,5 @@
 name: Spring Boot®
-version: 0.3.17
+version: 0.3.23
 description: Spring Boot using OpenJ9 and Maven
 license: Apache-2.0
 language: java
@@ -9,5 +9,15 @@ maintainers:
     github-id: ebullient
   - name: Ozzy Osborne
     email: ozzy@ca.ibm.com
-    github-id: bardweller      
+    github-id: bardweller
 default-template: default
+requirements:
+   appsody-version: ">= 0.5.0"
+   docker-version: ">= 17.09.0"
+templating-data:
+  baseimage: kabanero/ubi8-maven:0.3.0
+  finalimage: registry.access.redhat.com/redhat-openjdk-18/openjdk18-openshift:1.7
+  parentpomgroup: dev.appsody
+  parentpomid: spring-boot2-stack-snowdrop
+  parentpomrange: '[0.3, 0.4)'
+  parentpomfilename: appsody-boot2-snowdrop-pom.xml
