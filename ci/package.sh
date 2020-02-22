@@ -15,6 +15,11 @@ exec_hooks $script_dir/ext/pre_package.d
 for repo_name in $REPO_LIST
 do
     repo_dir=$base_dir/$repo_name
+    if [ "${BUILD_ALL}" == "true" ]
+    then
+        echo "apiVersion: v2" > $HOME/.appsody/stacks/dev.local/$repo_name-index.yaml
+        echo "stacks:" >> $HOME/.appsody/stacks/dev.local/$repo_name-index.yaml
+    fi
     useCachedIndex="--use-local-cache"
     if [ -d $repo_dir ]
     then
@@ -120,7 +125,7 @@ do
 
                     echo -e "\n- ADD $repo_name with release URL prefix $RELEASE_URL/$stack_id-v$stack_version/$repo_name."
                     if appsody stack add-to-repo $repo_name \
-                        --release-url $RELEASE_URL/$stack_id-v$stack_version/$repo_name. \
+                        --release-url $RELEASE_URL/$stack_id-v$stack_version/ \
                         $useCachedIndex
                     then
                         useCachedIndex="--use-local-cache"
@@ -134,7 +139,7 @@ do
                         if [ -d $template_dir ]
                         then
                             template_id=$(basename $template_dir)
-                            versioned_archive=$repo_name.$stack_id.v$stack_version.templates.$template_id.tar.gz
+                            versioned_archive=$stack_id.v$stack_version.templates.$template_id.tar.gz
                             packaged_archive=$stack_id.v$stack_version.templates.$template_id.tar.gz
                             if [ -f $HOME/.appsody/stacks/dev.local/$packaged_archive ]; then
                                 echo "--- Copying $HOME/.appsody/stacks/dev.local/$packaged_archive to $assets_dir/$versioned_archive"
@@ -142,7 +147,7 @@ do
                             fi
                         fi
                     done
-                    source_archive=$repo_name.$stack_id.v$stack_version.source.tar.gz
+                    source_archive=$stack_id.v$stack_version.source.tar.gz
                     packaged_source_archive=$stack_id.v$stack_version.source.tar.gz
                     if [ -f $HOME/.appsody/stacks/dev.local/$packaged_source_archive ]; then
                         echo "--- Copying $HOME/.appsody/stacks/dev.local/$packaged_source_archive to $assets_dir/$source_archive"
