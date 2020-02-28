@@ -1,10 +1,21 @@
 name: IBM WebSphere Traditional®
 version: 0.1.2
-description: tWAS using Maven
+description: tWAS & OpenJ9 using Maven
 license: Apache-2.0
 language: java
 maintainers:
- - name: Glenn Marcy
-   email: gmarcy@us.ibm.com
-   github-id: gmarcy
+  - name: Glenn Marcy
+    email: gmarcy@us.ibm.com
+    github-id: gmarcy
 default-template: default
+requirements:
+    appsody-version: ">= 0.5.0"
+    docker-version: ">= 17.09.0"
+templating-data:
+    twasversion: '9.0.5.2'
+    baseimage: kabanero/ubi8-maven:0.3.1
+    finalimage: ibmcom/websphere-traditional:9.0.5.2-ubi
+    parentpomgroup: dev.appsody
+    parentpomid: java-websphere-traditional
+    parentpomrange: '[0.1, 0.2)'
+    parentpomfilename: appsody-twas-pom.xml

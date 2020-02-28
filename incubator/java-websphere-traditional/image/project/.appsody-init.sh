@@ -20,5 +20,9 @@ fi
 
 which java 2>&1 >/dev/null ; JAVA_KNOWN=$?
 if [ ! -z "$JAVA_HOME" ] || [ $JAVA_KNOWN = "0" ]; then
-  ./mvnw install -q -f ./appsody-twas-pom.xml -Denforcer.skip=true
+  ./mvnw install -q -f ./{{.stack.parentpomfilename}} -Denforcer.skip=true
 fi
+
+# copy the maven wrapper from the stack to extracted application directory
+cp -Rp mvnw* ..
+cp -Rp .mvn ..

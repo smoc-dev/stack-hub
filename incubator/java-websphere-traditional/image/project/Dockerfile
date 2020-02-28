@@ -1,4 +1,5 @@
-FROM kabanero/ubi8-maven as compile
+# Step 1: Build the user's application
+FROM {{.stack.baseimage}} as compile
 
 RUN mkdir -p /mvn/repository
 
@@ -6,21 +7,21 @@ RUN mkdir -p /mvn/repository
 COPY . /project
 COPY ./mvn-stack-settings.xml /usr/share/maven/conf/settings.xml
 
-# OSGI core for version range processing
-RUN  /project/util/check_version build
-
 WORKDIR /project/user-app
 
-RUN /project/java-twas-build.sh package
+RUN /project/util/check_version build \
+ && /project/java-twas-build.sh package
 
 ####
-FROM ibmcom/websphere-traditional:9.0.5.2-ubi
+
+# Step 2: Package tWAS image
+FROM {{.stack.finalimage}}
 
 WORKDIR /
 
+COPY --from=compile /project/user-app/config/ /work/config/
+
 COPY --from=compile /project/user-app/app/target/app.ear /work/config/user-app/
 # COPY --from=compile /project/user-app/app.ear /work/config/user-app/
-COPY --from=compile /project/install_app_prod.py /work/config/install_app.py
-COPY --from=compile /project/was-config.props /work/config/was-config.props
 
 RUN /work/configure.sh

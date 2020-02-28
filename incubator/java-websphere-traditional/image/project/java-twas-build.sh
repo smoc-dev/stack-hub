@@ -37,9 +37,23 @@ run_mvn () {
   mvn --no-transfer-progress ${MVN_COLOR} "$@"
 }
 
+exec_run_mvn () {
+  echo -e "${GREEN}> mvn $@${NO_COLOR}"
+  exec mvn --no-transfer-progress ${MVN_COLOR} "$@"
+}
+
 common() {
+  # Check that we have a writable home directory
+  if [ ! -w "$HOME" ]; then
+    export HOME=/work/home
+    if [ ! -w "$HOME" ]; then
+      error "HOME folder is not writable"
+      exit 1
+    fi
+  fi
+
   # Test pom.xml is present and a file.
-  if [ ! -f ./pom.xml ]; then
+  if [ ! -f ./pom.xml ] && [ ! -z "${APPSODY_DEV_MODE}" ]; then
     error "Could not find Maven pom.xml
 
     * The project directory (containing an .appsody-conf.yaml file) must contain a pom.xml file.
@@ -50,7 +64,7 @@ common() {
     exit 1
   fi
   # workaround: exit with error if repository does not exist
-  if [ ! -d /mvn/repository ]; then
+  if [ ! -d /mvn/repository ] && [ ! -z "${APPSODY_DEV_MODE}" ]; then
     error "Could not find local Maven repository
 
     Create a .m2/repository directory in your home directory. For example:
@@ -60,10 +74,10 @@ common() {
     exit 1
   fi
 
-  # Get parent pom information (appsody-twas-pom.xml)
-  local a_groupId=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:groupId" /project/appsody-twas-pom.xml)
-  local a_artifactId=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:artifactId" /project/appsody-twas-pom.xml)
-  local a_version=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:version" /project/appsody-twas-pom.xml)
+  # Get parent pom information 
+  local a_groupId=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:groupId" /project/{{.stack.parentpomfilename}})
+  local a_artifactId=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:artifactId" /project/{{.stack.parentpomfilename}})
+  local a_version=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:version" /project/{{.stack.parentpomfilename}})
   local a_major=$(echo ${a_version} | cut -d'.' -f1)
   local a_minor=$(echo ${a_version} | cut -d'.' -f2)
   ((next=a_minor+1))
@@ -72,8 +86,13 @@ common() {
   if ! $(mvn -N dependency:get -q -o -Dartifact=${a_groupId}:${a_artifactId}:${a_version} -Dpackaging=pom >/dev/null)
   then
     # Install parent pom
-    note "Installing parent ${a_groupId}:${a_artifactId}:${a_version}"
-    run_mvn install -q -f /project/appsody-twas-pom.xml
+    note "Installing parent ${a_groupId}:${a_artifactId}:${a_version} and required dependencies..."
+    if [ -z "${APPSODY_DEV_MODE}" ]
+    then
+      run_mvn install -Denforcer.skip=true -q -f /project/{{.stack.parentpomfilename}}
+    else
+      run_mvn install -Denforcer.skip=true -f /project/{{.stack.parentpomfilename}}
+    fi
   fi
 
   local p_groupId=$(xmlstarlet sel -T -N x="http://maven.apache.org/POM/4.0.0" -t -v "/x:project/x:parent/x:groupId" pom.xml)
@@ -114,7 +133,7 @@ the parent version in pom.xml, and test your changes.
 
 recompile() {
   note "Compile project in the foreground"
-  run_mvn compile
+  exec_run_mvn compile 
 }
 
 package() {
@@ -131,9 +150,11 @@ package() {
 
 run() {
   note "Build and run project in the foreground"
-##  run_mvn -Dmaven.test.skip=true \
+##  exec_run_mvn -Dmaven.test.skip=true \
 ##    clean spring-boot:run
+  run_mvn -Dmaven.test.skip=true clean package
   mkdir -p /work/config/user-app
+  cp -r /project/user-app/config/* /work/config/
   cp /project/user-app/app/target/app.ear /work/config/user-app/
   (cd / && /work/configure.sh)
   /work/start_server.sh
@@ -141,12 +162,12 @@ run() {
 
 test() {
   note "Test project in the foreground"
-  run_mvn package test
+  exec_run_mvn package verify
 }
 
-install() {
-  note "Install project in the foreground"
-  run_mvn clean package install -DskipTests
+prep() {
+  note "Prepare project in the foreground"
+##  run_mvn clean package install -DskipTests
 }
 
 #set the action, default to fail text if none passed.
@@ -157,6 +178,10 @@ if [ $# -ge 1 ]; then
 fi
 
 case "${ACTION}" in
+  prep)
+    common
+    prep
+  ;;
   recompile)
     export APPSODY_DEV_MODE=run
     recompile
@@ -180,10 +205,7 @@ case "${ACTION}" in
     export APPSODY_DEV_MODE=test
     test
   ;;
-  install)
-    install
-  ;;
   *)
-    error "Unexpected script usage, expected one of recompile, package, debug, run, test, install"
+    error "Unexpected script usage, expected one of recompile, package, debug, run, test"
   ;;
 esac

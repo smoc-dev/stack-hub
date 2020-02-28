@@ -1,10 +1,9 @@
 apiVersion: appsody.dev/v1beta1
 kind: AppsodyApplication
-metadata:
+metadata: 
   name: APPSODY_PROJECT_NAME
 spec:
-  # Add fields here
-  version: 0.1.1
+  version: 0.1.2
   applicationImage: APPSODY_DOCKER_IMAGE
   stack: APPSODY_STACK
   service:
