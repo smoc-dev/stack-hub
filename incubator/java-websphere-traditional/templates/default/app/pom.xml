@@ -4,10 +4,10 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-      <groupId>dev.appsody</groupId>
-      <artifactId>java-websphere-traditional</artifactId>
-      <version>[0.1,0.2)</version>
-      <relativePath/>
+    <groupId>{{.stack.parentpomgroup}}</groupId>
+    <artifactId>{{.stack.parentpomid}}</artifactId>
+    <version>{{.stack.parentpomrange}}</version>
+    <relativePath/>
   </parent>
 
   <groupId>app</groupId>

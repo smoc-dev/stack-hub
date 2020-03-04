@@ -34,11 +34,16 @@ public class HelloWorldTest {
     
     @AfterEach
     public void teardown() {
-        response.close();
+        if (response != null) {
+            response.close();
+        }
         client.close();
     }
 
     @Test
+    public void testSimple() {
+    }
+
     public void testResourceEndpoint() {
         checkEndpoint(RESOURCE_ENDPOINT, "Hello World!");
 
