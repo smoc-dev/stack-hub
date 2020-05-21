@@ -19,7 +19,7 @@ spec:
       - name: stacks
         type: string
         description: List of stacks to build. Specify 'all' to build all stacks.
-        default: all
+        default: java-websphere-traditional
       - name: routeHostname
         type: string
         description: Hostname of the route for the application hosting stacks index
