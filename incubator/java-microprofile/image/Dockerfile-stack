@@ -24,6 +24,8 @@ USER java_user
 RUN  /project/util/check_version build
 
 WORKDIR /project/
+RESULT=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+RUN bash -c '/bin/echo -e $RESULT'
 RUN mvn -B --no-transfer-progress -Dmaven.repo.local=/mvn/repository -N io.takari:maven:wrapper -Dmaven=$(mvn help:evaluate -Dexpression=maven.version -q -DforceStdout)
 RUN mvn -B --no-transfer-progress -Dmaven.repo.local=/mvn/repository install dependency:go-offline -DskipTests
 RUN mvn -B --no-transfer-progress -Dmaven.repo.local=/mvn/repository install dependency:go-offline -DskipTests -f pom-dev.xml
