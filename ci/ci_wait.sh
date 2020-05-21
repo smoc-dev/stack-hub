@@ -172,7 +172,7 @@ main() {
   local pid_slowpoke=0
   local exit_slowpoke=0
   # Options:
-  local interval=30
+  local interval=1
   local time_limit=0
   local exit_force=-1
   local append=0
